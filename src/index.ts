@@ -19,11 +19,12 @@ import { WebXRCamera } from "@babylonjs/core/XR/webXRCamera";
 import { Axis } from "@babylonjs/core/Maths/math.axis";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import { PointerEventTypes, PointerInfo } from "@babylonjs/core/Events/pointerEvents";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
 
-// add this to import the controller models from the online repository
+// Add this to import the controller models from the online repository
 import "@babylonjs/loaders"
 
 // More necessary side effects
@@ -123,6 +124,10 @@ class Game
             }  
         });
 
+        // Register event handler for selection events (pulling the trigger, clicking the mouse button)
+        this.scene.onPointerObservable.add((pointerInfo) => {
+            this.processPointer(pointerInfo);
+        });
 
         // The assets manager can be used to load multiple assets
         var assetsManager = new AssetsManager(this.scene);
@@ -177,6 +182,29 @@ class Game
     {
         // Polling for controller input
         this.processControllerInput();  
+    }
+
+    // Event handler for processing pointer events
+    private processPointer(pointerInfo: PointerInfo)
+    {
+        switch (pointerInfo.type) {
+            case PointerEventTypes.POINTERDOWN:
+                if (pointerInfo.pickInfo?.hit) {
+
+                    // If the object is currently highlighted, disable the edge renderer
+                    if(pointerInfo.pickInfo.pickedMesh!.edgesRenderer)
+                    {
+                        pointerInfo.pickInfo.pickedMesh!.disableEdgesRendering();
+                    }
+                    // Otherwise, enable edge rendering to highlight the object
+                    else
+                    {
+                        pointerInfo.pickInfo.pickedMesh!.enableEdgesRendering();
+                        pointerInfo.pickInfo.pickedMesh!.edgesWidth = 2;
+                    }
+                }
+                break;
+        }
     }
 
     // Process event handlers for controller input
