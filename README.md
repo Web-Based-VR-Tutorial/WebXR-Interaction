@@ -20,6 +20,13 @@ For those familiar with Typescript, you do not have to run ```tsc``` to build th
 
 You can run the sample by pointing your web browser at ```https://localhost:8080/index.html```
 
+## Acknowledgments
+
+The following resources were used in this tutorial:
+   - [Dragonite 3D model](https://clara.io/view/5cf54194-6b42-4d1e-bfc3-4fff1f89287c#) from Clara.io
+   - [RPG Poly Pack - Lite](https://assetstore.unity.com/packages/3d/environments/landscapes/rpg-poly-pack-lite-148410) from the Unity Asset Store
+   - [UnityGLTF plugin](https://github.com/KhronosGroup/UnityGLTF) from the Khronos Group
+
 ## License
 
 Material for the Web-Based VR Tutorial by [Evan Suma Rosenberg](https://illusioneering.umn.edu/) and [Blair MacIntyre](https://blairmacintyre.me/) is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-nc-sa/4.0/).
