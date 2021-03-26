@@ -12,6 +12,12 @@ import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
 import { AssetsManager } from "@babylonjs/core/Misc/assetsManager"
+import { Logger } from "@babylonjs/core/Misc/logger";
+import { WebXRControllerComponent } from "@babylonjs/core/XR/motionController/webXRControllercomponent";
+import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
+import { WebXRCamera } from "@babylonjs/core/XR/webXRCamera";
+import { Axis } from "@babylonjs/core/Maths/math.axis";
+import { Quaternion } from "@babylonjs/core/Maths/math.vector";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
@@ -30,6 +36,10 @@ class Game
     private engine: Engine;
     private scene: Scene;
 
+    private xrCamera: WebXRCamera | null; 
+    private leftController: WebXRInputSource | null;
+    private rightController: WebXRInputSource | null;
+
     constructor()
     {
         // Get the canvas element 
@@ -41,6 +51,10 @@ class Game
         // Creates a basic Babylon Scene object
         this.scene = new Scene(this.engine);   
 
+        // Initialize XR camera and controller member variables
+        this.xrCamera = null;
+        this.leftController = null;
+        this.rightController = null;
     }
 
     start() : void 
@@ -89,9 +103,25 @@ class Game
         // Disable default teleportation
         xrHelper.teleportation.dispose();
 
+        // Assigns the web XR camera to a member variable
+        this.xrCamera = xrHelper.baseExperience.camera;
+
+        // Assign the left and right controllers to member variables
+        xrHelper.input.onControllerAddedObservable.add((inputSource) => {
+
+            if(inputSource.uniqueId.endsWith("left")) 
+            {
+                this.leftController = inputSource;
+            }
+            else 
+            {
+                this.rightController = inputSource;
+            }  
+        });
+
+
         // The assets manager can be used to load multiple assets
         var assetsManager = new AssetsManager(this.scene);
-
 
         // Create a task for each asset you want to load
         var objTask = assetsManager.addMeshTask("obj task", "", "assets/", "dragonite.obj");
@@ -128,8 +158,210 @@ class Game
     // The main update loop will be executed once per frame before the scene is rendered
     private update() : void
     {
- 
+        // Polling for controller input
+        this.processControllerInput();  
     }
+
+    // Process event handlers for controller input
+    private processControllerInput()
+    {
+        this.onLeftTrigger(this.leftController?.motionController?.getComponent("xr-standard-trigger"));
+        this.onLeftSqueeze(this.leftController?.motionController?.getComponent("xr-standard-squeeze"));
+        this.onLeftThumbstick(this.leftController?.motionController?.getComponent("xr-standard-thumbstick"));
+        this.onLeftX(this.leftController?.motionController?.getComponent("x-button"));
+        this.onLeftY(this.leftController?.motionController?.getComponent("y-button"));
+
+        this.onRightTrigger(this.rightController?.motionController?.getComponent("xr-standard-trigger"));
+        this.onRightSqueeze(this.rightController?.motionController?.getComponent("xr-standard-squeeze"));
+        this.onRightThumbstick(this.rightController?.motionController?.getComponent("xr-standard-thumbstick"));
+        this.onRightA(this.rightController?.motionController?.getComponent("a-button"));
+        this.onRightB(this.rightController?.motionController?.getComponent("b-button"));
+    }
+
+
+    private onLeftTrigger(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("left trigger pressed");
+            }
+            else
+            {
+                Logger.Log("left trigger released");
+            }
+        }     
+    }
+
+    private onLeftSqueeze(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("left squeeze pressed");
+            }
+            else
+            {
+                Logger.Log("left squeeze released");
+            }
+        }  
+    }
+
+    private onLeftX(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("left X pressed");
+            }
+            else
+            {
+                Logger.Log("left X released");
+            }
+        }  
+    }
+
+    private onLeftY(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("left Y pressed");
+            }
+            else
+            {
+                Logger.Log("left Y released");
+            }
+        }  
+    }
+
+    private onLeftThumbstick(component?: WebXRControllerComponent)
+    {   
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("left thumbstick pressed");
+            }
+            else
+            {
+                Logger.Log("left thumbstick released");
+            }
+        }  
+
+        if(component?.changes.axes)
+        {
+            Logger.Log("left thumbstick axes: (" + component.axes.x + "," + component.axes.y + ")");
+        }
+    }
+
+    private onRightTrigger(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("right trigger pressed");
+            }
+            else
+            {
+                Logger.Log("right trigger released");
+            }
+        }  
+    }
+
+    private onRightSqueeze(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("right squeeze pressed");
+            }
+            else
+            {
+                Logger.Log("right squeeze released");
+            }
+        }  
+    }
+
+    private onRightA(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("right A pressed");
+            }
+            else
+            {
+                Logger.Log("right A released");
+            }
+        }  
+    }
+
+    private onRightB(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("right B pressed");
+            }
+            else
+            {
+                Logger.Log("right B released");
+            }
+        }  
+    }
+
+    private onRightThumbstick(component?: WebXRControllerComponent)
+    {  
+        if(component?.changes.pressed)
+        {
+            if(component?.pressed)
+            {
+                Logger.Log("right thumbstick pressed");
+            }
+            else
+            {
+                Logger.Log("right thumbstick released");
+            }
+        }  
+
+        if(component?.changes.axes)
+        {
+            Logger.Log("right thumbstick axes: (" + component.axes.x + "," + component.axes.y + ")");
+        }
+
+        // Forward locomotion, deadzone of 0.1
+        if(component?.axes.y! > 0.1 || component?.axes.y! < -0.1)
+        {
+            // Get the current camera direction
+            var directionVector = this.xrCamera!.getDirection(Axis.Z);
+
+            // Use delta time to calculate the move distance based on speed of 3 m/sec
+            var moveDistance = -component!.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
+
+            // Translate the camera forward
+            this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
+        }
+
+        // Turning, deadzone of 0.1
+        if(component?.axes.x! > 0.1 || component?.axes.x! < -0.1)
+        {
+            // Use delta time to calculate the turn angle based on speed of 60 degrees/sec
+            var turnAngle = component!.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
+
+            // Smooth turning
+            var cameraRotation = Quaternion.FromEulerAngles(0, turnAngle * Math.PI / 180, 0);
+            this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
+        }
+    } 
 
 }
 /******* End of the Game class ******/   
