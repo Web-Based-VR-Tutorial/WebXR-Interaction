@@ -8,25 +8,13 @@
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3, Color3, Color4 } from "@babylonjs/core/Maths/math";
-import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
+import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight";
-import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
-import { Logger } from "@babylonjs/core/Misc/logger";
-import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder"
-import { AdvancedDynamicTexture } from "@babylonjs/gui/2D/advancedDynamicTexture";
-import { StackPanel } from "@babylonjs/gui/2D/controls/stackPanel";
-import { TextBlock } from "@babylonjs/gui/2D/controls/textBlock";
-import { Control } from "@babylonjs/gui/2D/controls/control";
-import { ColorPicker } from "@babylonjs/gui/2D/controls/colorpicker";
-import {StandardMaterial} from "@babylonjs/core/Materials/standardMaterial"
+import { AssetsManager } from "@babylonjs/core/Misc/assetsManager"
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
-
-// WebXR stuff
-import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
-import { WebXRFeatureName, WebXRFeaturesManager } from "@babylonjs/core/XR/webXRFeaturesManager";
-import { WebXRMotionControllerManager } from "@babylonjs/core/XR/motionController/webXRMotionControllerManager";
 
 // add this to import the controller models from the online repository
 import "@babylonjs/loaders"
@@ -34,6 +22,7 @@ import "@babylonjs/loaders"
 // More necessary side effects
 import "@babylonjs/core/Materials/standardMaterial"
 import "@babylonjs/inspector";
+
 
 class Game 
 { 
@@ -74,72 +63,63 @@ class Game
 
     private async createScene() 
     {
-        // Create an IcoSphere
-        var sphere = MeshBuilder.CreateIcoSphere("sphere", 
-                           {radius:0.2, flat:true, subdivisions: 1}, this.scene);
-        sphere.position.y = 3;
-        sphere.material = new StandardMaterial("sphere material", this.scene)
-    
-        // Light
-        var light = new DirectionalLight("light", new Vector3(0, -0.5, 1.0), this.scene);
-        light.position = new Vector3(0, 5, -2);
+        // This creates and positions a first-person camera (non-mesh)
+        var camera = new UniversalCamera("camera1", new Vector3(0, 1.6, 0), this.scene);
 
-        // Camera
-        var camera = new ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 4, 3, 
-                                         new Vector3(0, 3, 0), this.scene);
+        // This sets the camera direction
+        camera.setTarget(new Vector3(0, 1.6, 1));
+
+        // This attaches the camera to the canvas
         camera.attachControl(this.canvas, true);
-        camera.beta += 0.8;
     
         // Default Environment
-        var environment = this.scene.createDefaultEnvironment({ enableGroundShadow: true,    
-                                                                groundYBias: 2.8 });
-        environment!.setMainColor(Color3.FromHexString("#74b9ff"))
-        
-        // Shadows for the light created above
-        var shadowGenerator = new ShadowGenerator(1024, light);
-        shadowGenerator.useBlurExponentialShadowMap = true;
-        shadowGenerator.blurKernel = 32;
-        shadowGenerator.addShadowCaster(sphere, true);
+        //var environment = this.scene.createDefaultEnvironment({ enableGroundShadow: true, groundYBias: 2.8 });
+        //environment!.setMainColor(Color3.FromHexString("#74b9ff"))
+
+        var ambientlight = new HemisphericLight("ambient", new Vector3(0, 1, 0), this.scene);
+        ambientlight.intensity = 1.0;
+        ambientlight.diffuse = new Color3(.3, .3, .3);
+
+        var directionalLight = new DirectionalLight("light", new Vector3(0, -0.5, 1.0), this.scene);
+        directionalLight.intensity = 1.0;   
     
         // Initialize WebXR
-        const xrHelper = await this.scene.createDefaultXRExperienceAsync({
-                floorMeshes: [environment!.ground!]
-        });
-        const availableFeatures = WebXRFeaturesManager.GetAvailableFeatures();
-        console.log("WebXR Features:")
-        console.log(availableFeatures)
+        const xrHelper = await this.scene.createDefaultXRExperienceAsync({ });
 
-        // Runs every frame to rotate the sphere
-        this.scene.onBeforeRenderObservable.add(()=>{
-            sphere.rotation.y += 0.0001*this.scene.getEngine().getDeltaTime();
-            sphere.rotation.x += 0.0001*this.scene.getEngine().getDeltaTime();
-        })
-    
-        // GUI: create a 2D GUI as a dynamic texture on a plane
-        var plane = MeshBuilder.CreatePlane("plane",{});
-        plane.position = new Vector3(0.4, 4, 0.4)
-        var advancedTexture = AdvancedDynamicTexture.CreateForMesh(plane);
-        var panel = new StackPanel();    
-        advancedTexture.addControl(panel);  
+        // Disable default teleportation
+        xrHelper.teleportation.dispose();
 
-        // populate the panel with title and colorpicker
-        var header = new TextBlock();
-        header.text = "Color GUI";
-        header.height = "100px";
-        header.color = "white";
-        header.textHorizontalAlignment = Control.HORIZONTAL_ALIGNMENT_CENTER;
-        header.fontSize = "120"
-        panel.addControl(header); 
-        
-        var picker = new ColorPicker();
-        picker.value = (sphere.material as StandardMaterial).diffuseColor;
-        picker.horizontalAlignment =  Control.HORIZONTAL_ALIGNMENT_CENTER;
-        picker.height = "350px";
-        picker.width = "350px";
-        picker.onValueChangedObservable.add(function(value) {
-            (sphere.material as StandardMaterial).diffuseColor.copyFrom(value);
-        });
-        panel.addControl(picker);
+        // The assets manager can be used to load multiple assets
+        var assetsManager = new AssetsManager(this.scene);
+
+
+        // Create a task for each asset you want to load
+        var objTask = assetsManager.addMeshTask("obj task", "", "assets/", "dragonite.obj");
+        objTask.onSuccess = (task) => {
+            objTask.loadedMeshes[0].name = "dragonite";
+            objTask.loadedMeshes[0].position = new Vector3(0, 1, 2);
+            objTask.loadedMeshes[0].scaling = new Vector3(2, 2, 2);
+            objTask.loadedMeshes[0].rotation = new Vector3(0, Math.PI, 0);
+        }
+
+        var worldTask = assetsManager.addMeshTask("world task", "", "assets/", "world.glb");
+        worldTask.onSuccess = (task) => {
+            worldTask.loadedMeshes[0].name = "world";
+            worldTask.loadedMeshes[0].position = new Vector3(-75, -22, -50);
+            
+            worldTask.loadedMeshes.forEach((mesh) => {
+                console.log("loaded mesh: " + mesh.name);
+            })
+        }
+
+
+        // This loads all the assets and displays a loading screen
+        assetsManager.load();
+
+        // This will execute when all assets are loaded
+        assetsManager.onFinish = (tasks) => {
+
+        }
     
         // Show the debug scene explorer and object inspector
         this.scene.debugLayer.show(); 
@@ -151,19 +131,6 @@ class Game
  
     }
 
-
-    colors = {
-        seaFoam: Color3.FromHexString("#16a085"),
-        green: Color3.FromHexString("#27ae60"),
-        blue: Color3.FromHexString("#2980b9"),
-        purple: Color3.FromHexString("#8e44ad"),
-        navy: Color3.FromHexString("#2c3e50"),
-        yellow: Color3.FromHexString("#f39c12"),
-        orange: Color3.FromHexString("#d35400"),
-        red: Color3.FromHexString("#c0392b"),
-        white: Color3.FromHexString("#bdc3c7"),
-        gray: Color3.FromHexString("#7f8c8d")
-    }
 }
 /******* End of the Game class ******/   
 
