@@ -18,6 +18,7 @@ import { WebXRInputSource } from "@babylonjs/core/XR/webXRInputSource";
 import { WebXRCamera } from "@babylonjs/core/XR/webXRCamera";
 import { Axis } from "@babylonjs/core/Maths/math.axis";
 import { Quaternion } from "@babylonjs/core/Maths/math.vector";
+import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 // Side effects
 import "@babylonjs/core/Helpers/sceneHelpers";
@@ -26,7 +27,6 @@ import "@babylonjs/core/Helpers/sceneHelpers";
 import "@babylonjs/loaders"
 
 // More necessary side effects
-import "@babylonjs/core/Materials/standardMaterial"
 import "@babylonjs/inspector";
 
 
@@ -39,6 +39,9 @@ class Game
     private xrCamera: WebXRCamera | null; 
     private leftController: WebXRInputSource | null;
     private rightController: WebXRInputSource | null;
+
+    private rightGrabbedObject: AbstractMesh | null;
+    private grabbableObjects: Array<AbstractMesh>;
 
     constructor()
     {
@@ -55,6 +58,10 @@ class Game
         this.xrCamera = null;
         this.leftController = null;
         this.rightController = null;
+
+        // Objects that will be grabbable using a controller
+        this.rightGrabbedObject = null;
+        this.grabbableObjects = [];
     }
 
     start() : void 
@@ -86,10 +93,7 @@ class Game
         // This attaches the camera to the canvas
         camera.attachControl(this.canvas, true);
     
-        // Default Environment
-        //var environment = this.scene.createDefaultEnvironment({ enableGroundShadow: true, groundYBias: 2.8 });
-        //environment!.setMainColor(Color3.FromHexString("#74b9ff"))
-
+        // Add some lights to the scene
         var ambientlight = new HemisphericLight("ambient", new Vector3(0, 1, 0), this.scene);
         ambientlight.intensity = 1.0;
         ambientlight.diffuse = new Color3(.3, .3, .3);
@@ -132,6 +136,7 @@ class Game
             objTask.loadedMeshes[0].rotation = new Vector3(0, Math.PI, 0);
         }
 
+        // Load a GLB file of an entire scene exported from Unity
         var worldTask = assetsManager.addMeshTask("world task", "", "assets/", "world.glb");
         worldTask.onSuccess = (task) => {
             worldTask.loadedMeshes[0].name = "world";
@@ -149,6 +154,18 @@ class Game
         // This will execute when all assets are loaded
         assetsManager.onFinish = (tasks) => {
 
+            // Add the loaded mesh as a grabbable
+            this.grabbableObjects.push(objTask.loadedMeshes[0]);
+
+            // Search through the loaded meshes
+            worldTask.loadedMeshes.forEach((mesh) => {
+
+                // Add only the mesh in the props group as grabbables
+                if(mesh.parent?.name == "Props") {
+                    this.grabbableObjects.push(mesh);
+                    mesh.setParent(null);
+                }  
+            });
         }
     
         // Show the debug scene explorer and object inspector
@@ -281,10 +298,25 @@ class Game
             if(component?.pressed)
             {
                 Logger.Log("right squeeze pressed");
+
+                for(var i = 0; i < this.grabbableObjects.length && !this.rightGrabbedObject; i++)
+                {
+                    if(this.rightController!.grip!.intersectsMesh(this.grabbableObjects[i], true))
+                    {
+                        this.rightGrabbedObject = this.grabbableObjects[i];
+                        this.rightGrabbedObject.setParent(this.rightController!.grip!);
+                    }
+                }
             }
             else
             {
                 Logger.Log("right squeeze released");
+
+                if(this.rightGrabbedObject)
+                {
+                    this.rightGrabbedObject.setParent(null);
+                    this.rightGrabbedObject = null;
+                }
             }
         }  
     }
@@ -336,6 +368,23 @@ class Game
         if(component?.changes.axes)
         {
             Logger.Log("right thumbstick axes: (" + component.axes.x + "," + component.axes.y + ")");
+
+            // If thumbstick crosses the turn threshold to the right
+            if(component.changes.axes.current.x > 0.75 && component.changes.axes.previous.x <= 0.75)
+            {
+                // Snap turn by 45 degrees
+                var cameraRotation = Quaternion.FromEulerAngles(0, 45 * Math.PI / 180, 0);
+                this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
+            }
+
+            // If thumbstick crosses the turn threshold to the left
+            if(component.changes.axes.current.x < -0.75 && component.changes.axes.previous.x >= -0.75)
+            {
+                // Snap turn by -45 degrees
+                var cameraRotation = Quaternion.FromEulerAngles(0, -45 * Math.PI / 180, 0);
+                this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
+            }
+
         }
 
         // Forward locomotion, deadzone of 0.1
@@ -343,6 +392,9 @@ class Game
         {
             // Get the current camera direction
             var directionVector = this.xrCamera!.getDirection(Axis.Z);
+            
+            // Restrict vertical movement
+            directionVector.y = 0;
 
             // Use delta time to calculate the move distance based on speed of 3 m/sec
             var moveDistance = -component!.axes.y * (this.engine.getDeltaTime() / 1000) * 3;
@@ -351,16 +403,6 @@ class Game
             this.xrCamera!.position.addInPlace(directionVector.scale(moveDistance));
         }
 
-        // Turning, deadzone of 0.1
-        if(component?.axes.x! > 0.1 || component?.axes.x! < -0.1)
-        {
-            // Use delta time to calculate the turn angle based on speed of 60 degrees/sec
-            var turnAngle = component!.axes.x * (this.engine.getDeltaTime() / 1000) * 60;
-
-            // Smooth turning
-            var cameraRotation = Quaternion.FromEulerAngles(0, turnAngle * Math.PI / 180, 0);
-            this.xrCamera!.rotationQuaternion.multiplyInPlace(cameraRotation);
-        }
     } 
 
 }
